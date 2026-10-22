@@ -24,7 +24,7 @@ axum = { version = "0.7", features = ["macros", "json"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 nix = "0.27"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 rand = "0.8"
 
 [profile.release]
