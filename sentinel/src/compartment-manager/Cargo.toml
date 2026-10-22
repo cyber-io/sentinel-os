@@ -20,7 +20,7 @@ async-trait = "0.1"
 tempfile = "3.8"
 tokio-util = { version = "0.7", features = ["codec", "io"] }
 futures = "0.3"
-axum = { version = "0.7", features = ["macros", "json"] }
+axum = { version = "0.8", features = ["macros", "json"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 nix = "0.27"
