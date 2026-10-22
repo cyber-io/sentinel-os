@@ -26,7 +26,7 @@ tokio-stream = "0.1"
 futures = "0.3"
 axum = { version = "0.7", features = ["macros", "json", "ws"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "trace"] }
+tower-http = { version = "0.7", features = ["cors", "trace"] }
 
 [profile.release]
 lto = true
