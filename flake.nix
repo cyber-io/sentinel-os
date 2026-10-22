@@ -9,47 +9,31 @@
     # Hardware support
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
-    # seL4 / microkernel
-    sel4.url = "github:seL4/seL4";
-    sel4.inputs.nixpkgs.follows = "nixpkgs";
-
-    # CIP hardened kernel
-    cip-kernel.url = "github:cip-project/linux-cip";
-    cip-kernel.inputs.nixpkgs.follows = "nixpkgs";
-
+    
+    
     # Verified boot
-    heads.url = "github:heads/heads";
+    heads.url = "github:osresearch/heads";
     heads.inputs.nixpkgs.follows = "nixpkgs";
 
     # AI/ML packages
     llama-cpp.url = "github:ggml-org/llama.cpp";
     llama-cpp.inputs.nixpkgs.follows = "nixpkgs";
 
-    # Container/VM tooling
-    crosvm.url = "github:google/crosvm";
-    crosvm.inputs.nixpkgs.follows = "nixpkgs";
-
+    
     # Utility flakes
     flake-utils.url = "github:numtide/flake-utils";
     devenv.url = "github:cachix/devenv";
-    pre-commit-hooks.url = "github:nix-community/pre-commit-hook-nixpkgs";
   };
 
-  outputs = { self, nixpkgs, nixpkgs-unstable, nixos-hardware, sel4, cip-kernel, heads, llama-cpp, crosvm, flake-utils, devenv, pre-commit-hooks, ... }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, nixos-hardware, heads, llama-cpp, flake-utils, devenv, ... }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-linux" ] (system:
       let
         # Base pkgs with overlays
         pkgs = import nixpkgs {
           inherit system;
           overlays = [
-            # CIP kernel overlay
-            (import cip-kernel.overlays.default)
-            # seL4 overlay
-            (import sel4.overlays.default)
             # llama.cpp overlay
             (import llama-cpp.overlays.default)
-            # crosvm overlay
-            (import crosvm.overlays.default)
             # Local overlays
             (import ./sentinel/overlays)
           ];
