@@ -1,0 +1,73 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'sentinel-dev'
+    environment: 'development'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Sentinel Core Services
+  - job_name: 'sentinel-capability-broker'
+    static_configs:
+      - targets: ['capability-broker:8081']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-compartment-manager'
+    static_configs:
+      - targets: ['compartment-manager:8082']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-ai-orchestrator'
+    static_configs:
+      - targets: ['ai-orchestrator:8083']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-model-registry'
+    static_configs:
+      - targets: ['model-registry:8084']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-threat-intel'
+    static_configs:
+      - targets: ['threat-intel:8085']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-attestation'
+    static_configs:
+      - targets: ['attestation-service:8086']
+    metrics_path: '/metrics'
+
+  - job_name: 'sentinel-health-check'
+    static_configs:
+      - targets: ['health-check:8087']
+    metrics_path: '/metrics'
+
+  # Infrastructure
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+
+  # Node Exporter (host metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']

@@ -1,0 +1,241 @@
+version: 2
+updates:
+  # Rust dependencies
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/capability-broker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "capability-broker"
+    commit-message:
+      prefix: "deps(capability-broker):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/compartment-manager"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "compartment-manager"
+    commit-message:
+      prefix: "deps(compartment-manager):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/ai-orchestrator"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "ai-orchestrator"
+    commit-message:
+      prefix: "deps(ai-orchestrator):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/model-registry"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "model-registry"
+    commit-message:
+      prefix: "deps(model-registry):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/threat-intel"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "threat-intel"
+    commit-message:
+      prefix: "deps(threat-intel):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/attestation-service"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "attestation-service"
+    commit-message:
+      prefix: "deps(attestation-service):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/health-check"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "health-check"
+    commit-message:
+      prefix: "deps(health-check):"
+
+  - package-ecosystem: "cargo"
+    directory: "/sentinel/src/operator-tui"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "rust"
+      - "operator-tui"
+    commit-message:
+      prefix: "deps(operator-tui):"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "deps(actions):"
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/capability-broker"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "capability-broker"
+    commit-message:
+      prefix: "deps(docker/capability-broker):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/compartment-manager"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "compartment-manager"
+    commit-message:
+      prefix: "deps(docker/compartment-manager):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/ai-orchestrator"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "ai-orchestrator"
+    commit-message:
+      prefix: "deps(docker/ai-orchestrator):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/model-registry"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "model-registry"
+    commit-message:
+      prefix: "deps(docker/model-registry):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/threat-intel"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "threat-intel"
+    commit-message:
+      prefix: "deps(docker/threat-intel):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/attestation-service"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "attestation-service"
+    commit-message:
+      prefix: "deps(docker/attestation-service):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/health-check"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "health-check"
+    commit-message:
+      prefix: "deps(docker/health-check):"
+
+  - package-ecosystem: "docker"
+    directory: "/sentinel/src/operator-tui"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "02:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "docker"
+      - "operator-tui"
+    commit-message:
+      prefix: "deps(docker/operator-tui):"

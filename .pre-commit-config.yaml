@@ -1,0 +1,101 @@
+# Pre-commit hooks for Sentinel OS
+# Run: pre-commit install
+# Run all: pre-commit run --all-files
+
+repos:
+  # Nix formatting
+  - repo: https://github.com/nix-community/pre-commit-hook-nixpkgs-fmt
+    rev: v1.0.0
+    hooks:
+      - id: nixpkgs-fmt
+        name: Format Nix files with nixpkgs-fmt
+        files: \.nix$
+        exclude: flake.lock
+
+  # Nix static analysis
+  - repo: https://github.com/nix-community/pre-commit-hook-statix
+    rev: v1.0.0
+    hooks:
+      - id: statix
+        name: Check Nix files with statix
+        files: \.nix$
+        exclude: flake.lock
+
+  # Nix dead code detection
+  - repo: https://github.com/nix-community/pre-commit-hook-deadnix
+    rev: v1.0.0
+    hooks:
+      - id: deadnix
+        name: Check for dead code with deadnix
+        files: \.nix$
+        exclude: flake.lock
+
+  # General formatting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: Remove trailing whitespace
+      - id: end-of-file-fixer
+        name: Ensure files end with newline
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+      - id: check-toml
+        name: Check TOML syntax
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: detect-private-key
+        name: Detect private keys
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        args: ["--fix=lf"]
+
+  # Shellcheck
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.4
+    hooks:
+      - id: shellcheck
+        name: Shellcheck shell scripts
+        files: \.sh$
+        args: ["-x", "-S", "warning"]
+
+  # Shfmt
+  - repo: https://github.com/mvdan/sh
+    rev: v3.8.0
+    hooks:
+      - id: shfmt
+        name: Format shell scripts
+        files: \.sh$
+        args: ["-i", "2", "-ci", "-sr"]
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.41.0
+    hooks:
+      - id: markdownlint
+        name: Lint Markdown files
+        files: \.md$
+        args: ["--config", ".markdownlint.json"]
+
+  # Git commit message linting
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.28.0
+    hooks:
+      - id: commitizen
+        name: Check commit message format
+        stages: [commit-msg]
+
+  # Secret detection
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.80.0
+    hooks:
+      - id: trufflehog
+        name: Detect secrets with TruffleHog
+        args: ["--no-verification"]
+
+# Configuration
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+fail_fast: true

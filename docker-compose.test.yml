@@ -1,0 +1,106 @@
+version: '3.8'
+
+# Sentinel OS Test Environment
+# Run with: docker-compose -f docker-compose.yml -f docker-compose.test.yml up --abort-on-container-exit
+
+services:
+  # Test runner
+  test-runner:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile.test
+    container_name: sentinel-test-runner
+    depends_on:
+      - capability-broker
+      - compartment-manager
+      - ai-orchestrator
+      - model-registry
+      - threat-intel
+      - attestation-service
+      - health-check
+      - operator-tui
+      - postgres
+      - redis
+      - nats
+      - minio
+      - prometheus
+      - loki
+    environment:
+      - RUST_LOG=info
+      - TEST_CAPABILITY_BROKER_URL=http://capability-broker:8081
+      - TEST_COMPARTMENT_MANAGER_URL=http://compartment-manager:8082
+      - TEST_AI_ORCHESTRATOR_URL=http://ai-orchestrator:8083
+      - TEST_MODEL_REGISTRY_URL=http://model-registry:8084
+      - TEST_THREAT_INTEL_URL=http://threat-intel:8085
+      - TEST_ATTESTATION_SERVICE_URL=http://attestation-service:8086
+      - TEST_HEALTH_CHECK_URL=http://health-check:8087
+      - TEST_OPERATOR_TUI_URL=http://operator-tui:8088
+      - TEST_POSTGRES_URL=postgres://sentinel:sentinel_db_password@postgres:5432/sentinel
+      - TEST_REDIS_URL=redis://:sentinel_redis_password@redis:6379
+      - TEST_NATS_URL=nats://nats:4222
+      - TEST_MINIO_ENDPOINT=minio:9000
+      - TEST_MINIO_ACCESS_KEY=sentinel_minio_user
+      - TEST_MINIO_SECRET_KEY=sentinel_minio_password
+    volumes:
+      - ./tests:/tests:ro
+      - ./sentinel/src:/sentinel/src:ro
+    command: ["bash", "/tests/run_all_tests.sh", "all"]
+    networks:
+      - sentinel-network
+
+  # Unit test runner (Rust)
+  unit-test-runner:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile.rust-test
+    container_name: sentinel-unit-test-runner
+    depends_on:
+      - postgres
+      - redis
+      - nats
+    environment:
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://sentinel:sentinel_db_password@postgres:5432/sentinel
+      - REDIS_URL=redis://:sentinel_redis_password@redis:6379
+      - NATS_URL=nats://nats:4222
+    volumes:
+      - ./sentinel/src:/sentinel/src:ro
+      - cargo-cache:/root/.cargo
+      - cargo-target:/sentinel/src/target
+    command: ["bash", "-c", "cd /sentinel/src && for d in capability-broker compartment-manager ai-orchestrator model-registry threat-intel attestation-service health-check operator-tui; do echo \"Testing \$d...\"; cargo test --manifest-path \$d/Cargo.toml || exit 1; done"]
+    networks:
+      - sentinel-network
+
+  # Lint checker
+  lint-checker:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile.rust-test
+    container_name: sentinel-lint-checker
+    volumes:
+      - ./sentinel/src:/sentinel/src:ro
+      - cargo-cache:/root/.cargo
+    command: ["bash", "-c", "cd /sentinel/src && cargo fmt --all --check && cargo clippy --all-targets --all-features -- -D warnings"]
+    networks:
+      - sentinel-network
+
+  # NixOS configuration checker
+  nixos-checker:
+    image: nixos/nix:latest
+    container_name: sentinel-nixos-checker
+    volumes:
+      - .:/workspace:ro
+      - nix-store:/nix/store
+    working_dir: /workspace
+    command: ["bash", "-c", "nix flake check && for config in dev-vm hardened installer; do echo \"Building \$config...\"; nix build \".#nixosConfigurations.\$config.config.system.build.toplevel\" --no-link || exit 1; done"]
+    networks:
+      - sentinel-network
+
+volumes:
+  cargo-cache:
+  cargo-target:
+  nix-store:
+
+networks:
+  sentinel-network:
+    external: true

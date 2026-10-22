@@ -1,0 +1,65 @@
+Sentinel OS - AI-Native Security Operating System
+Copyright (C) 2024-2026 Sentinel OS Contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+## Additional License Terms
+
+### AI/ML Components (Apache-2.0)
+The following components are licensed under the Apache License 2.0:
+- AI inference modules (sentinel/modules/ai/)
+- Model registry and gateway
+- Threat intelligence engine
+- Orchestration planner and critics
+
+See [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) for full terms.
+
+### SDKs and Libraries (MIT)
+The following components are licensed under the MIT License:
+- Operator CLI tools
+- Compartment management SDK
+- AI gateway client libraries
+- Health check and attestation utilities
+
+See [MIT](https://opensource.org/licenses/MIT) for full terms.
+
+### Documentation (CC-BY-4.0)
+Documentation in docs/, README.md, and SENTINEL-OS-SPEC.md is licensed under
+Creative Commons Attribution 4.0 International.
+
+See [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) for full terms.
+
+### Third-Party Components
+This distribution includes software from third parties with their own licenses:
+- NixOS / Nixpkgs: MIT / LGPL-2.1
+- Linux Kernel: GPL-2.0
+- seL4: GPL-2.0 / BSD-2-Clause
+- crosvm: BSD-3-Clause
+- llama.cpp: MIT
+- vLLM: Apache-2.0
+- All security tools: Various (GPL, MIT, Apache, BSD, etc.)
+
+See individual package derivations for specific license information.
+
+### Trademark
+"Sentinel OS" and the Sentinel OS logo are trademarks of the Sentinel OS Project.
+Use of these trademarks requires permission from the project maintainers.
+Forks must use a different name and branding.
+
+### Export Control
+This software includes cryptographic functionality and may be subject to
+export control regulations (EAR, ITAR). Users are responsible for compliance
+with applicable laws in their jurisdiction.

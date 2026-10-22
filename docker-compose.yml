@@ -1,0 +1,533 @@
+version: '3.8'
+
+services:
+  # =========================================================================
+  # Infrastructure Services
+  # =========================================================================
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sentinel
+      POSTGRES_USER: sentinel
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinel -d sentinel"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "nats", "server", "check", "jetstream"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: sentinel
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_password
+    secrets:
+      - minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  # =========================================================================
+  # AI Inference Services
+  # =========================================================================
+
+  llama-cpp:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    command: >
+      -m /models/sentinel-planner.gguf
+      -c 4096
+      -b 512
+      --host 0.0.0.0
+      --port 8080
+      --n-gpu-layers 32
+      --flash-attn
+      --mlock
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/models:ro
+      - llama-cache:/tmp/llama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - sentinel-internal
+    profiles:
+      - ai
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    command: >
+      --model /models/sentinel-critic
+      --tensor-parallel-size 1
+      --gpu-memory-utilization 0.8
+      --max-model-len 8192
+      --host 0.0.0.0
+      --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - sentinel-internal
+    profiles:
+      - ai
+
+  ollama-gateway:
+    build:
+      context: ./sentinel/src/ai-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "11434:11434"
+    environment:
+      LLAMACPP_URL: http://llama-cpp:8080
+      VLLM_URL: http://vllm:8000
+      DEFAULT_MODEL: sentinel-planner
+    depends_on:
+      llama-cpp:
+        condition: service_healthy
+      vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+    profiles:
+      - ai
+
+  # =========================================================================
+  # Sentinel Core Services
+  # =========================================================================
+
+  capability-broker:
+    build:
+      context: ./sentinel/src/capability-broker
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      RUST_LOG: info
+      POLICY_FILE: /etc/sentinel/policies/default.toml
+      SIGNING_KEY_FILE: /run/secrets/broker_signing_key
+      REDIS_URL: redis://redis:6379
+    secrets:
+      - broker_signing_key
+    volumes:
+      - ./sentinel/config/policies:/etc/sentinel/policies:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  compartment-manager:
+    build:
+      context: ./sentinel/src/compartment-manager
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      RUST_LOG: info
+      CAPABILITY_BROKER_URL: http://capability-broker:8081
+      STORAGE_POOL: /var/lib/sentinel/compartments
+      DEFAULT_CPU: "2"
+      DEFAULT_MEMORY: "4294967296"
+      DEFAULT_DISK: "10737418240"
+      GPU_PASSTHROUGH: "true"
+    volumes:
+      - compartment-storage:/var/lib/sentinel/compartments
+      - /dev/kvm:/dev/kvm
+      - /dev/vfio:/dev/vfio
+    devices:
+      - /dev/kvm
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - CAP_DAC_OVERRIDE
+    depends_on:
+      capability-broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  ai-orchestrator:
+    build:
+      context: ./sentinel/src/ai-orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      RUST_LOG: info
+      INFERENCE_GATEWAY_URL: http://ollama-gateway:11434
+      COMPARTMENT_MANAGER_URL: http://compartment-manager:8082
+      CAPABILITY_BROKER_URL: http://capability-broker:8081
+      PLANNER_MODEL: sentinel-planner
+      CRITIC_MODELS: "sentinel-critic-safety,sentinel-critic-efficacy,sentinel-critic-legality,sentinel-critic-opsec,sentinel-critic-resource"
+      MAX_CONCURRENT_TASKS: "10"
+      CRITIC_THRESHOLD: "0.7"
+    depends_on:
+      ollama-gateway:
+        condition: service_healthy
+      compartment-manager:
+        condition: service_healthy
+      capability-broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  model-registry:
+    build:
+      context: ./sentinel/src/model-registry
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      RUST_LOG: info
+      STORAGE_BACKEND: fs
+      STORAGE_PATH: /var/lib/sentinel/models
+      ORAS_REGISTRY: localhost:5000
+      COSIGN_KEYLESS: "true"
+      REKOR_URL: https://rekor.sigstore.dev
+    volumes:
+      - model-storage:/var/lib/sentinel/models
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  threat-intel:
+    build:
+      context: ./sentinel/src/threat-intel
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      RUST_LOG: info
+      INFERENCE_GATEWAY_URL: http://ollama-gateway:11434
+      MODEL_DIR: /var/lib/sentinel/models/threat
+      FEEDS_DIR: /etc/sentinel/feeds
+      THRESHOLD: "0.7"
+    volumes:
+      - ./sentinel/config/feeds:/etc/sentinel/feeds:ro
+      - threat-models:/var/lib/sentinel/models/threat
+    depends_on:
+      ollama-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  attestation-service:
+    build:
+      context: ./sentinel/src/attestation-service
+      dockerfile: Dockerfile
+    ports:
+      - "8086:8086"
+    environment:
+      RUST_LOG: info
+      TPM_DEVICE: /dev/tpmrm0
+      IMA_LOG: /sys/kernel/security/ima/ascii_runtime_measurements
+      PCR_POLICY: /etc/sentinel/pcr-policy.toml
+    volumes:
+      - ./sentinel/config/pcr-policy.toml:/etc/sentinel/pcr-policy.toml:ro
+      - /dev/tpmrm0:/dev/tpmrm0
+      - /sys/kernel/security:/sys/kernel/security:ro
+    devices:
+      - /dev/tpmrm0
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RAWIO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  health-check:
+    build:
+      context: ./sentinel/src/health-check
+      dockerfile: Dockerfile
+    ports:
+      - "8087:8087"
+      - "9090:9090"
+    environment:
+      RUST_LOG: info
+      CHECK_INTERVAL: "30"
+      RETENTION_HOURS: "24"
+      EXPORT_PROMETHEUS: "true"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /dev:/host/dev:ro
+      - /:/host/root:ro
+    pid: host
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+  # =========================================================================
+  # Operator Interface
+  # =========================================================================
+
+  operator-tui:
+    build:
+      context: ./sentinel/src/operator-tui
+      dockerfile: Dockerfile
+    environment:
+      RUST_LOG: info
+      API_URL: http://api-gateway:8080
+      WS_URL: ws://api-gateway:8080/ws
+    stdin_open: true
+    tty: true
+    depends_on:
+      - api-gateway
+    profiles:
+      - ui
+
+  # =========================================================================
+  # API Gateway / Load Balancer
+  # =========================================================================
+
+  api-gateway:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:8080"
+      - "--entrypoints.ws.address=:8080"
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sentinel-internal
+      - sentinel-external
+
+  # =========================================================================
+  # Monitoring
+  # =========================================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - sentinel-internal
+
+  grafana:
+    image: grafana/grafana:10.2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    secrets:
+      - grafana_password
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - sentinel-internal
+
+  loki:
+    image: grafana/loki:2.9
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - sentinel-internal
+
+  promtail:
+    image: grafana/promtail:2.9
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yml:ro
+    depends_on:
+      - loki
+    networks:
+      - sentinel-internal
+
+  # =========================================================================
+  # ORAS Registry (for model distribution)
+  # =========================================================================
+
+  oras-registry:
+    image: registry:2.8
+    environment:
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      REGISTRY_HTTP_ADDR: 0.0.0.0:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/v2/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - sentinel-internal
+
+networks:
+  sentinel-internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  sentinel-external:
+    driver: bridge
+  sentinel-test:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+volumes:
+  redis-data:
+  postgres-data:
+  nats-data:
+  minio-data:
+  llama-cache:
+  compartment-storage:
+  model-storage:
+  threat-models:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  registry-data:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  minio_password:
+    file: ./secrets/minio_password.txt
+  broker_signing_key:
+    file: ./secrets/broker_signing_key.pem
+  grafana_password:
+    file: ./secrets/grafana_password.txt

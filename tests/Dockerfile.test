@@ -1,0 +1,33 @@
+# Sentinel OS Test Runner Dockerfile
+# Contains tools needed for integration and contract testing
+
+FROM debian:12-slim
+
+# Install test dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    jq \
+    bash \
+    ca-certificates \
+    netcat-openbsd \
+    postgresql-client \
+    redis-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -r -u 1000 -g nogroup -m -d /home/tester tester
+
+WORKDIR /tests
+
+# Copy test scripts
+COPY integration/ ./integration/
+COPY contracts/ ./contracts/
+COPY run_all_tests.sh ./
+
+# Make scripts executable
+RUN chmod +x run_all_tests.sh integration/test_service_communication.sh contracts/test_api_contracts.sh
+
+USER tester
+
+ENTRYPOINT ["bash", "/tests/run_all_tests.sh"]
+CMD ["all"]

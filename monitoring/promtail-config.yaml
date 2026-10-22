@@ -1,0 +1,62 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+          host: sentinel-host
+
+  - job_name: containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: containerlogs
+          __path__: /var/lib/docker/containers/*/*log
+          host: sentinel-host
+
+  - job_name: sentinel-services
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: sentinel
+          __path__: /opt/sentinel/logs/*/*.log
+          host: sentinel-host
+
+  - job_name: ai-inference
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: ai-inference
+          __path__: /opt/sentinel/logs/ai-inference/*.log
+          host: sentinel-host
+
+  - job_name: journal
+    journal:
+      json: false
+      max_age: 12h
+      path: /var/log/journal
+    relabel_configs:
+      - source_labels: ['__journal__systemd_unit']
+        target_label: 'unit'
+      - source_labels: ['__journal__hostname']
+        target_label: 'host'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: systemd-journal

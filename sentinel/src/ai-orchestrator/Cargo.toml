@@ -1,0 +1,44 @@
+[package]
+name = "sentinel-ai-orchestrator"
+version = "0.1.0"
+edition = "2021"
+description = "Sentinel OS AI Orchestrator - plans and executes security tasks with critic validation"
+license = "Apache-2.0"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full", "macros", "rt-multi-thread"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.5", features = ["derive", "env"] }
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.7", features = ["v4", "serde", "fast-rng"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+async-trait = "0.1"
+futures = "0.3"
+axum = { version = "0.7", features = ["macros", "json", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+tokio-stream = "0.1"
+rand = "0.8"
+parking_lot = "0.12"
+dashmap = "5.5"
+schemars = "0.8"
+async-openai = { version = "0.18", features = ["chat"] }
+llama-cpp-2 = { version = "0.10", features = ["std", "accelerate"] }
+onnxruntime = "0.17"
+ndarray = "0.16"
+tokenizers = "0.15"
+candle-core = { version = "0.6", features = ["cuda"] }
+candle-nn = "0.6"
+candle-transformers = "0.6"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+opt-level = "z"

@@ -1,0 +1,54 @@
+# Sentinel OS Rust Test Dockerfile
+# Contains Rust toolchain for unit tests and linting
+
+FROM rust:1.82-bookworm AS builder
+
+# Install additional tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    libxcb-render0-dev \
+    libxcb-shape0-dev \
+    libxcb-xfixes0-dev \
+    libxkbcommon-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo tools
+RUN cargo install cargo-audit cargo-deny --locked
+
+WORKDIR /sentinel/src
+
+# Copy source for dependency caching
+COPY sentinel/src/ ./
+
+# Pre-build dependencies
+RUN for d in capability-broker compartment-manager ai-orchestrator model-registry threat-intel attestation-service health-check operator-tui; do \
+    cd $d && cargo fetch && cd ..; done
+
+FROM rust:1.82-bookworm
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    libxcb-render0-dev \
+    libxcb-shape0-dev \
+    libxcb-xfixes0-dev \
+    libxkbcommon-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy cargo tools from builder
+COPY --from=builder /usr/local/cargo/bin/cargo-audit /usr/local/cargo/bin/cargo-deny /usr/local/cargo/bin/
+
+WORKDIR /sentinel/src
+
+# Copy source
+COPY sentinel/src/ ./
+
+# Create cargo cache volume mount point
+VOLUME ["/root/.cargo", "/sentinel/src/target"]
+
+CMD ["bash"]
