@@ -32,7 +32,7 @@ COPY sentinel/src/operator-tui/src ./src
 RUN cargo build --release
 
 # Runtime stage - need X11 libs for TUI
-FROM debian:12-slim AS runtime
+FROM debian:13-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
