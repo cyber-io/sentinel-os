@@ -28,7 +28,7 @@ COPY sentinel/src/threat-intel/src ./src
 RUN cargo build --release
 
 # Runtime stage - need additional libs for ONNX runtime
-FROM debian:12-slim AS runtime
+FROM debian:13-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
