@@ -29,7 +29,7 @@ COPY sentinel/src/attestation-service/src ./src
 RUN cargo build --release
 
 # Runtime stage
-FROM debian:12-slim AS runtime
+FROM debian:13-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
